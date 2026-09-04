@@ -12,6 +12,7 @@
    - [2.1 ยุทธศาสตร์แบบ 2 ระดับ (Two-Tier Ephemeris Strategy)](#21-ยุทธศาสตร์แบบ-2-ระดับ-two-tier-ephemeris-strategy)
    - [2.2 คณิตศาสตร์เบื้องหลังอัลกอริทึมดาราศาสตร์ NOAA / Jean Meeus](#22-คณิตศาสตร์เบื้องหลังอัลกอริทึมดาราศาสตร์-noaa--jean-meeus)
    - [2.3 การคำนวณวันในอดีต (Historical Archive API vs NOAA Offline)](#23-การคำนวณวันในอดีต-historical-archive-api-vs-noaa-offline)
+   - [2.4 กลไกการคำนวณเที่ยงวันสุริยะ (Solar Noon Determination)](#24-กลไกการคำนวณเที่ยงวันสุริยะ-solar-noon-determination)
 3. [ระบบระบุพิกัดและลำดับชั้นการปกครองของไทย (Thai Geocoding Hierarchy)](#3-ระบบระบุพิกัดและลำดับชั้นการปกครองของไทย-thai-geocoding-hierarchy)
    - [3.1 การแปลงที่อยู่ 2 ทาง (Forward & Reverse Geocoding)](#31-การแปลงที่อยู่-2-ทาง-forward--reverse-geocoding)
    - [3.2 การทำ Mapping โครงสร้างการปกครองไทยจาก OpenStreetMap](#32-การทำ-mapping-โครงสร้างการปกครองไทยจาก-openstreetmap)
@@ -153,6 +154,15 @@ graph TD
 - **Open-Meteo Historical Weather Archive**: มีข้อมูลสถานีตรวจวัดและแบบจำลองสภาพอากาศย้อนหลังตั้งแต่ปี ค.ศ. 1940 (พ.ศ. 2483) เป็นต้นมา
 - **NOAA Offline Fallback**: สำหรับวันที่ก่อนปี 1940 (เช่น วันสถาปนากรุงเทพฯ 21 เมษายน พ.ศ. 2325) อัลกอริทึม NOAA Meeus สามารถคำนวณตำแหน่งย้อนหลังไปได้หลายพันปีอย่างต่อเนื่อง
 
+### 2.4 กลไกการคำนวณเที่ยงวันสุริยะ (Solar Noon Determination)
+- **ความหมายทางดาราศาสตร์**: เที่ยงวันสุริยะ (Solar Noon) คือช่วงเวลาที่จุดศูนย์กลางของดวงอาทิตย์โคจรตัดผ่านเส้นเมริเดียนท้องฟ้าของผู้สังเกตการณ์ (Local Celestial Meridian) ทำมุมเงยสูงสุด (Culmination) ในวันนั้น โดยเวลาเที่ยงวันสุริยะจริงจะไม่ตรงกับเวลา 12:00 น. บนนาฬิกามาตรฐานเสมอไป เนื่องจากผลกระทบจากความเยื้องศูนย์กลางของวงโคจรโลก ($e$), ความเอียงของแกนโลก ($\epsilon$), และความแตกต่างระหว่างลองจิจูดของผู้สังเกตการณ์กับเส้นเมริเดียนมาตรฐานประจำเขตเวลา ($105^\circ$ ตะวันออกสำหรับ UTC+7)
+- **โหมดออนไลน์ (Online Open-Meteo)**: คำนวณจุดกึ่งกลางทางเวลา (Temporal Midpoint) จากเส้นเวลาของ Sunrise และ Sunset:
+  $$Solar Noon = Sunrise + \frac{Sunset - Sunrise}{2}$$
+- **โหมดออฟไลน์ (Offline NOAA Ephemeris)**: คำนวณตรงจากสมการเวลา (Equation of Time: $EoT$) และค่าลองจิจูด:
+  $$Solar Noon_{min} = (720 - 4 \cdot Longitude - EoT) \pmod{1440}$$
+  $$Solar Noon_{local} = Solar Noon_{min} + \left(\frac{UTC\_Offset_{sec}}{60}\right)$$
+- **การจัดการแคชย้อนหลัง (Backward-Compatible Cache Infill)**: ในกรณีที่ผู้ใช้เรียกข้อมูลจากแคชเดิมที่เคยถูกบันทึกไว้ก่อนการเพิ่มฟีเจอร์นี้ ระบบ Deserializer ใน `ephemeris.py` จะคำนวณค่า Solar Noon จากค่า `sunrise` และ `sunset` เดิมให้โดยอัตโนมัติแบบ On-the-fly ป้องกันปัญหาข้อมูลว่าง (Null field)
+
 ---
 
 ## 3. ระบบระบุพิกัดและลำดับชั้นการปกครองของไทย (Thai Geocoding Hierarchy)
@@ -216,21 +226,22 @@ $$\text{is\_leap} = (\text{year} \pmod 4 == 0 \land \text{year} \pmod{100} \neq 
 
 ### 5.1 การออกแบบโครงสร้างฐานข้อมูล SQLite WAL Mode
 - **WAL Mode (Write-Ahead Logging)**: อนุญาตให้อ่านข้อมูลพร้อมกันได้หลายเธรด (Concurrent Readers) โดยไม่ถูกบล็อกจากการเขียน
-- **Persistent Location**: เก็บไฟล์ฐานข้อมูลไว้ที่ `.cache/sunriseset.db` ภายใต้โฮมไดเรกทอรีของผู้ใช้หรือโปรเจกต์
+- **Persistent Location**: เก็บไฟล์ฐานข้อมูลไว้ที่ `~/.cache/sunriseset/cache.db` ภายใต้โฮมไดเรกทอรีของผู้ใช้ หรือปรับแต่งตำแหน่งผ่านตัวแปรสภาพแวดล้อม `SUNRISESET_CACHE_DIR`
 - **Schema**:
   ```sql
-  CREATE TABLE IF NOT EXISTS api_cache (
-      cache_key TEXT PRIMARY KEY,
-      data_json TEXT NOT NULL,
-      created_at REAL NOT NULL,
-      expires_at REAL NOT NULL
+  CREATE TABLE IF NOT EXISTS cache_entries (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      expires_at REAL NOT NULL,
+      created_at REAL NOT NULL
   );
   ```
 
 ### 5.2 การสร้าง Cache Key และ Time-To-Live (TTL)
-- **Geocoding Key**: ใช้การ Normalize ข้อความสถานที่ หรือปัดเศษทศนิยมพิกัด 4 ตำแหน่ง (~11 เมตร) เช่น `geo:rev:13.7563:100.5018` มี TTL ยาวนาน (เช่น 30 วัน) เนื่องจากที่อยู่ทางภูมิศาสตร์ไม่เปลี่ยนแปลงบ่อย
-- **Ephemeris Key**: ใช้คู่พิกัดและวันที่ เช่น `ephem:13.7563:100.5018:2026-09-04` มี TTL 7 วัน
+- **Geocoding Key**: ใช้การ Normalize ข้อความสถานที่ หรือปัดเศษทศนิยมพิกัด 4 ตำแหน่ง (~11 เมตร) เช่น `geo:fwd:เสาชิงช้า พระนคร` หรือ `geo:rev:13.7563:100.5018` มี TTL 7 วัน (604,800 วินาที)
+- **Ephemeris Key**: ใช้คู่พิกัดทศนิยม 4 ตำแหน่งและวันที่ ISO เช่น `solar:13.7563:100.5018:2026-09-04` มี TTL 24 ชั่วโมง (86,400 วินาที)
 - **ผลลัพธ์ Benchmark**: เมื่อค้นหาข้อมูลที่มีในแคช เวลาตอบสนองจะลดลงจาก ~500ms เหลือเพียง **< 20ms**
+
 
 ---
 
@@ -269,7 +280,34 @@ def sanitize_filename(name: str) -> str:
 ```json
 {
   "success": true,
-  "data": { ... },
+  "data": {
+    "date": "2026-09-04",
+    "date_thai": "4 กันยายน พ.ศ. 2569 (2026-09-04)",
+    "latitude": 13.7563,
+    "longitude": 100.5018,
+    "timezone": "Asia/Bangkok",
+    "timezone_abbreviation": "GMT+7",
+    "gmt_offset": "GMT+7",
+    "utc_offset_seconds": 25200,
+    "sunrise": "06:06",
+    "sunset": "18:27",
+    "solar_noon": "12:16",
+    "daylight_duration_text": "12 ชั่วโมง 21 นาที",
+    "daylight_duration_seconds": 44463.44,
+    "google_maps_url": "https://www.google.com/maps?q=13.756300,100.501800",
+    "address": {
+      "road": "วงเวียนอนุสาวรีย์ประชาธิปไตย",
+      "subdistrict": "แขวงบวรนิเวศ",
+      "district": "เขตพระนคร",
+      "province": "กรุงเทพมหานคร",
+      "postcode": "10200",
+      "country": "ประเทศไทย",
+      "full_address": "วงเวียนอนุสาวรีย์ประชาธิปไตย, ชุมชนหลังวัดราชนัดดา, แขวงบวรนิเวศ, เขตพระนคร, กรุงเทพมหานคร, 10200, ประเทศไทย"
+    },
+    "source": "Open-Meteo API (Online)",
+    "cached": true,
+    "report_path": "report/รายงานพระอาทิตย์_2569-09-04_154743_กรุงเทพมหานคร_พระนคร.md"
+  },
   "error": null
 }
 ```
