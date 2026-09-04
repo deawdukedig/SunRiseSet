@@ -3,7 +3,7 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-46%20passed-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-47%20passed-success.svg)](tests/)
 [![Technical Docs](https://img.shields.io/badge/docs-OVERVIEW.md-informational.svg)](OVERVIEW.md)
 [![OS Independent](https://img.shields.io/badge/OS-Windows%20%7C%20macOS%20%7C%20Linux-brightgreen.svg)](README.md)
 [![UTF-8](https://img.shields.io/badge/encoding-UTF--8%20100%25-orange.svg)](README.md)
@@ -353,7 +353,7 @@ SunRiseSet/
 │   └── solar_calc.py           # CLI Wrapper สำหรับ Agent และ Script
 ├── report/                     # ไดเรกทอรีเก็บรายงานผลอัตโนมัติ (UTF-8)
 │   └── .gitkeep
-└── tests/                      # 46 Automated Unit & Benchmark Tests
+└── tests/                      # 47 Automated Unit & Benchmark Tests
     ├── audit_paths.py          # ตรวจสอบความถูกต้องของลิงก์และ Path ทั้งหมด
     ├── test_models.py          # ทดสอบ Data validation และ models
     ├── test_cache.py           # ทดสอบ SQLite cache & TTL
@@ -370,7 +370,7 @@ SunRiseSet/
 
 ## 7. การทดสอบและรับประกันคุณภาพ (Testing & Quality Assurance)
 
-ระบบมาพร้อมชุดทดสอบอัตโนมัติ **46 รายการ** ครอบคลุมการทำงานทุกส่วน ทั้ง Unit Tests, Fault Injection, Caching, และ Benchmark:
+ระบบมาพร้อมชุดทดสอบอัตโนมัติ **47 รายการ** ครอบคลุมการทำงานทุกส่วน ทั้ง Unit Tests, Fault Injection, Caching, และ Benchmark:
 
 ```powershell
 python -m unittest discover tests
@@ -378,7 +378,7 @@ python -m unittest discover tests
 
 **ผลลัพธ์การทดสอบ:**
 ```text
-Ran 46 tests in 0.32s — OK (ผ่านการทดสอบ 100%)
+Ran 47 tests in 0.35s — OK (ผ่านการทดสอบ 100%)
 ```
 
 และสามารถรันสคริปต์ตรวจเช็คความถูกต้องของ Path, Import, ลิงก์ Markdown ทั้งหมดในโปรเจกต์ได้ด้วย:

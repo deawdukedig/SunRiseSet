@@ -8,13 +8,14 @@ Features:
 - Fallback for offline environments
 """
 
+import re
 import time
 import json
 import logging
 import urllib.request
 import urllib.parse
 import urllib.error
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 
 from .models import AddressInfo, Coordinates
 from .cache import default_cache
@@ -145,9 +146,63 @@ def reverse_geocode(lat: float, lon: float, use_cache: bool = True) -> AddressIn
             full_address=f"พิกัด {lat:.4f}, {lon:.4f}"
         )
 
+def normalize_thai_query(query: str) -> List[str]:
+    """
+    Generate normalized candidate variations for Thai administrative search queries.
+    Handles:
+    - Special separators (,, -, /, \)
+    - Thai administrative abbreviations (อ., ต., จ., ถ., ซ., กทม.)
+    - Spacing variations (e.g. 'อ. เมือง' -> 'อำเภอเมือง', 'เมือง อุตรดิตถ์' -> 'อำเภอเมืองอุตรดิตถ์')
+    - Stripped prefixes for cases where OSM stores pure names without administrative nouns
+    Returns an ordered list of up to 3 high-probability query candidates.
+    """
+    query_clean = query.strip()
+    if not query_clean:
+        return []
+
+    # 1. Clean punctuation/separators
+    clean = re.sub(r'[,/\\-]', ' ', query_clean)
+    clean = re.sub(r'\s+', ' ', clean).strip()
+
+    # 2. Expand Thai administrative abbreviations and standardize prefixes
+    expanded = clean
+    expanded = re.sub(r'(?:^|\s+)กทม\.?(?:\s+|$)', ' กรุงเทพมหานคร ', expanded)
+    expanded = re.sub(r'(?:^|\s+)จ\.\s*', ' จังหวัด', expanded)
+    expanded = re.sub(r'(?:^|\s+)อ\.\s*เมือง(?:\s+|$)', ' อำเภอเมือง ', expanded)
+    expanded = re.sub(r'(?:^|\s+)อ\.\s*', ' อำเภอ', expanded)
+    expanded = re.sub(r'(?:^|\s+)ต\.\s*', ' ตำบล', expanded)
+    expanded = re.sub(r'(?:^|\s+)ถ\.\s*', ' ถนน', expanded)
+    expanded = re.sub(r'(?:^|\s+)ซ\.\s*', ' ซอย', expanded)
+    expanded = re.sub(r'(?:^|\s+)เมือง\s+', ' อำเภอเมือง', expanded)
+    expanded = re.sub(r'\s+', ' ', expanded).strip()
+
+    candidates = []
+    if expanded:
+        candidates.append(expanded)
+    if clean != expanded and clean not in candidates:
+        candidates.append(clean)
+
+    # 3. Stripped administrative prefixes (OSM often indexes entities without 'อำเภอ' or 'ตำบล')
+    stripped = re.sub(r'(?:จังหวัด|อำเภอ|ตำบล|เขต|แขวง)', ' ', expanded)
+    stripped = re.sub(r'\s+', ' ', stripped).strip()
+    if stripped and stripped not in candidates:
+        candidates.append(stripped)
+
+    # Dedup and cap to 3 candidates
+    seen = set()
+    result = []
+    for c in candidates:
+        if c and c not in seen:
+            seen.add(c)
+            result.append(c)
+            if len(result) >= 3:
+                break
+    return result
+
 def forward_geocode(query: str, use_cache: bool = True) -> Tuple[Coordinates, AddressInfo]:
     """
     Forward geocode a location search query into Coordinates and AddressInfo.
+    Applies intelligent Thai query normalization and progressive fallback cascades.
     """
     query_clean = query.strip()
     cache_key = f"fwdgeo:{query_clean.lower()}"
@@ -158,21 +213,40 @@ def forward_geocode(query: str, use_cache: bool = True) -> Tuple[Coordinates, Ad
             addr = AddressInfo(**cached_val["address"])
             return coords, addr
 
-    params = {
-        "q": query_clean,
-        "format": "json",
-        "limit": 1,
-        "accept-language": "th",
-        "addressdetails": 1
-    }
-    url = f"https://nominatim.openstreetmap.org/search?{urllib.parse.urlencode(params)}"
+    candidates = normalize_thai_query(query_clean)
+    if not candidates:
+        candidates = [query_clean]
+
+    data = None
+    last_candidate = query_clean
+    for cand in candidates:
+        params = {
+            "q": cand,
+            "format": "json",
+            "limit": 1,
+            "accept-language": "th",
+            "addressdetails": 1
+        }
+        # If Thai characters are detected in candidate, prioritize Thailand countrycode
+        if any('\u0e00' <= ch <= '\u0e7f' for ch in cand):
+            params["countrycodes"] = "th"
+
+        url = f"https://nominatim.openstreetmap.org/search?{urllib.parse.urlencode(params)}"
+
+        try:
+            raw_data = _http_get_with_retry(url)
+            res_data = json.loads(raw_data.decode("utf-8"))
+            if res_data:
+                data = res_data
+                last_candidate = cand
+                break
+        except Exception:
+            continue
+
+    if not data:
+        raise ValueError(f"ไม่พบข้อมูลตำแหน่งสำหรับ: '{query_clean}'")
 
     try:
-        raw_data = _http_get_with_retry(url)
-        data = json.loads(raw_data.decode("utf-8"))
-        if not data:
-            raise ValueError(f"ไม่พบข้อมูลตำแหน่งสำหรับ: '{query_clean}'")
-
         item = data[0]
         coords = Coordinates(latitude=float(item["lat"]), longitude=float(item["lon"]))
         addr_dict = item.get("address", {})

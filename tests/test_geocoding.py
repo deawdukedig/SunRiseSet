@@ -54,5 +54,24 @@ class TestGeocoding(unittest.TestCase):
         self.assertAlmostEqual(coords.longitude, 98.967, places=1)
         self.assertIn("เชียงใหม่", info.province)
 
+    def test_normalize_thai_query_abbreviations(self):
+        from sunriseset.geocoding import normalize_thai_query
+
+        # Test abbreviation expansions
+        cands = normalize_thai_query("ต.ท่าเสา อ.เมือง จ.อุตรดิตถ์")
+        self.assertTrue(any("ตำบลท่าเสา" in c and "อำเภอเมือง" in c and "จังหวัดอุตรดิตถ์" in c for c in cands))
+
+        # Test Bangkok abbreviations
+        cands_bkk = normalize_thai_query("สยามพารากอน ปทุมวัน กทม")
+        self.assertTrue(any("กรุงเทพมหานคร" in c for c in cands_bkk))
+
+        # Test isolated 'เมือง'
+        cands_mueang = normalize_thai_query("หนองบัว ท่าเสา เมือง อุตรดิตถ์")
+        self.assertTrue(any("อำเภอเมือง" in c for c in cands_mueang))
+
+        # Test punctuation and separator stripping
+        cands_punct = normalize_thai_query("หนองบัว, ท่าเสา - อุตรดิตถ์")
+        self.assertTrue(all("," not in c and "-" not in c for c in cands_punct))
+
 if __name__ == "__main__":
     unittest.main()

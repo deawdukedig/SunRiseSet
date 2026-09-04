@@ -171,8 +171,8 @@ CLI จะส่งข้อมูลผ่าน Standard AI-Native JSON Envelo
 
 ## 7. Verification & Benchmark Suite (การทดสอบความถูกต้อง)
 
-รันชุดทดสอบความถูกต้องและการประเมินประสิทธิภาพ 32 รายการ:
+รันชุดทดสอบความถูกต้องและการประเมินประสิทธิภาพ 47 รายการ:
 ```powershell
 python -m unittest discover tests
 ```
-*เกณฑ์ผ่าน: ต้องผ่าน 32/32 tests (100% Pass Rate)*
+*เกณฑ์ผ่าน: ต้องผ่าน 47/47 tests (100% Pass Rate)*
