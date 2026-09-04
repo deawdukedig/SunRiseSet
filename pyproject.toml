@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sunriseset"
+version = "2.0.0"
+description = "High-precision Solar Ephemeris & Thai Administrative Geocoding System"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "HarnessMaster Team" }
+]
+keywords = [
+    "sunrise", "sunset", "ephemeris", "solar", "astronomy", "thailand",
+    "geocoding", "ai-agent", "harness"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+
+[project.scripts]
+sunriseset = "sunriseset.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

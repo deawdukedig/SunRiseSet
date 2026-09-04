@@ -1,0 +1,14 @@
+# Auto-detect text files and perform LF normalization
+* text=auto
+
+# Explicitly ensure LF line endings for Python and Markdown
+*.py text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+
+# Batch scripts for Windows
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
