@@ -10,6 +10,7 @@ import json
 import sqlite3
 from pathlib import Path
 from typing import Optional, Any
+from contextlib import contextmanager
 
 DEFAULT_CACHE_DIR = Path.home() / ".cache" / "sunriseset"
 
@@ -29,10 +30,23 @@ class SQLiteCache:
 
         self._init_db()
 
-    def _get_connection(self) -> sqlite3.Connection:
+    @contextmanager
+    def _get_connection(self):
         conn = sqlite3.connect(self.db_path, timeout=10.0)
         conn.execute("PRAGMA journal_mode=WAL;")
-        return conn
+        try:
+            yield conn
+        finally:
+            conn.close()
+
+    def close(self):
+        """Explicitly checkpoint WAL and release file locks."""
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=5.0)
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+            conn.close()
+        except Exception:
+            pass
 
     def _init_db(self):
         with self._get_connection() as conn:

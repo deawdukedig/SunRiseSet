@@ -16,7 +16,19 @@ class TestCache(unittest.TestCase):
         self.cache = SQLiteCache(self.db_path)
 
     def tearDown(self):
-        self.temp_dir.cleanup()
+        if hasattr(self, "cache"):
+            self.cache.close()
+        import gc
+        gc.collect()
+        try:
+            self.temp_dir.cleanup()
+        except (PermissionError, OSError):
+            time.sleep(0.05)
+            gc.collect()
+            try:
+                self.temp_dir.cleanup()
+            except Exception:
+                pass
 
     def test_set_and_get(self):
         self.cache.set("key1", {"value": 42}, ttl_seconds=10)

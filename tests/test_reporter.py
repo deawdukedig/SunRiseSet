@@ -18,7 +18,16 @@ class TestReporter(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
 
     def tearDown(self):
-        self.temp_dir.cleanup()
+        try:
+            self.temp_dir.cleanup()
+        except (PermissionError, OSError):
+            import gc, time
+            gc.collect()
+            time.sleep(0.05)
+            try:
+                self.temp_dir.cleanup()
+            except Exception:
+                pass
 
     def test_sanitize_filename(self):
         dirty = 'รายงาน: 13.75/100.50 * "test" ? <ok> | end.'
